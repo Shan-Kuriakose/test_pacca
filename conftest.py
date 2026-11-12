@@ -6,7 +6,7 @@ from pathlib import Path
 
 @pytest.fixture
 def repo_root():
-    current = Path(__file__).resolve().parent
-    while ".git" not in [entry.name for entry in current.iterdir()]:
-        current = current.parent
-    return current
+    # This conftest sits at the repository root, and a template copy may
+    # carry no .git at all -- so the root is this file's directory, never
+    # whatever a walk up the tree happens to find.
+    return Path(__file__).resolve().parent
