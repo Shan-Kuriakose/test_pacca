@@ -1,8 +1,9 @@
 """The game loop.
 
-It runs rounds, reports outcomes through the event port, and asks the
-difficulty port for the next difficulty. It names no adapter: a template that
-wires an unconfigured port must fail loudly here, not silently degrade.
+It runs rounds inside an explicit match lifecycle, reports outcomes through
+the event port, and asks the difficulty port for the next difficulty. It
+names no adapter: a template that wires an unconfigured port must fail loudly
+here, not silently degrade.
 
 Every tunable -- starting difficulty, speed, board size, obstacle count --
 is read from the injected knob store on each match start and each round,
@@ -54,6 +55,8 @@ class GameLoop:
         )
         self._knobs = knobs if knobs is not None else MatchKnobs()
         self._difficulty = self._knobs.starting_difficulty
+        self._match_in_progress = False
+        self._rounds_played_in_match = 0
 
     @property
     def difficulty(self) -> float:
@@ -61,8 +64,22 @@ class GameLoop:
         return self._difficulty
 
     def start_match(self) -> None:
-        """Begin a match by reading every tunable from the knob store."""
+        """Begin a match by reading every tunable from the knob store.
+
+        Once a match has played a round, starting another is refused loudly:
+        call finish_match() to close it first, so between-games tuning is
+        never mistaken for a mid-match reset. Before its first round a match
+        has played nothing, so start_match() simply re-reads the freshly
+        tuned store.
+        """
+        if self._match_in_progress and self._rounds_played_in_match > 0:
+            raise ValueError(
+                "a match is already in progress; call finish_match() "
+                "before starting another"
+            )
         self._difficulty = self._knobs.starting_difficulty
+        self._match_in_progress = True
+        self._rounds_played_in_match = 0
         self._publish(
             MATCH_STARTED_EVENT,
             {
@@ -73,8 +90,23 @@ class GameLoop:
             },
         )
 
+    def finish_match(self) -> None:
+        """Close the current match so a fresh one may start between games."""
+        if not self._match_in_progress:
+            raise ValueError("no match is in progress; nothing to finish")
+        self._match_in_progress = False
+
     def play_round(self, player_succeeded: bool) -> RoundResult:
-        """Run one round: report it, then hand the outcome to the strategy."""
+        """Run one round: report it, then hand the outcome to the strategy.
+
+        Refuses loudly before a match has started: a round played outside
+        the lifecycle must never resemble a round played inside it.
+        """
+        if not self._match_in_progress:
+            raise ValueError(
+                "no match is in progress; call start_match() before playing a round"
+            )
+        self._rounds_played_in_match += 1
         self._publish(ROUND_STARTED_EVENT, self._parameters_in_force())
         observation = DifficultyObservation(player_succeeded=player_succeeded)
         self._difficulty = self._difficulty_strategy.adjust(

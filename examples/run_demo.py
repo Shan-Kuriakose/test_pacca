@@ -2,9 +2,9 @@
 
 Run from a clean checkout with ``python examples/run_demo.py``. The script
 wires the loop (game-core) to the rule-based strategy (difficulty-ai) and the
-in-memory sink (event-instrumentation), plays a few rounds, tunes the knob
-stores to show the knob interface, and reports what was recorded -- with no
-network access and no credentials.
+in-memory sink (event-instrumentation), runs a match, tunes the knob stores
+mid-game and between games, runs a second match, and reports what was
+recorded -- with no network access and no credentials.
 
 A future project copies the repository and replaces exactly two things: the
 rules inside difficulty-ai, and the sink inside event-instrumentation.
@@ -41,24 +41,21 @@ def wire_the_template() -> tuple[object, object, object, object]:
 
 
 def play_demo_rounds(loop: object) -> None:
-    """Play the scripted rounds so the loop adjusts the difficulty."""
+    """Run the first match so the loop adjusts the difficulty."""
     loop.start_match()
     for player_succeeded in ROUNDS_TO_PLAY:
         loop.play_round(player_succeeded=player_succeeded)
+    loop.finish_match()
 
 
 def tune_the_knobs(loop: object, match_knobs: object, difficulty_knobs: object) -> None:
-    """Show mid-game and between-games tuning through the knob interface."""
+    """Tune between games, then mid-game, through the knob interface."""
     match_knobs.update(speed=2.0, board_size=14)
-    difficulty_knobs.update(rise_on_success=0.2)
     loop.start_match()
     loop.play_round(player_succeeded=True)
-
-
-def play_demo_rounds(loop: object) -> None:
-    """Play the scripted rounds so the loop adjusts the difficulty."""
-    for player_succeeded in ROUNDS_TO_PLAY:
-        loop.play_round(player_succeeded=player_succeeded)
+    difficulty_knobs.update(rise_on_success=0.2)
+    loop.play_round(player_succeeded=True)
+    loop.finish_match()
 
 
 def report_the_run(loop: object, sink: object) -> None:
@@ -66,7 +63,7 @@ def report_the_run(loop: object, sink: object) -> None:
     print("wired game_core.GameLoop")
     print("  difficulty strategy <- difficulty_ai.RuleBasedAdaptiveStrategy")
     print("  event publisher     <- event_instrumentation.InMemoryEventSink")
-    print(f"final difficulty after {len(ROUNDS_TO_PLAY)} rounds: {loop.difficulty:.2f}")
+    print(f"final difficulty: {loop.difficulty:.2f}")
     print(f"events recorded by the sink: {len(sink.events())}")
 
 

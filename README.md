@@ -33,9 +33,10 @@ The rule is enforced by tests, not by review:
 python examples/run_demo.py
 ```
 
-It wires all three modules, plays a few rounds, and prints the difficulty the
-strategy reached and the events the sink recorded. No network access and no
-credentials are needed.
+It wires all three modules, runs one match, tunes the knob stores mid-game
+and between games through `update()`, runs a second match with the tuned
+values, and prints the difficulty the strategy reached and the events the
+sink recorded. No network access and no credentials are needed.
 
 ## Using this repository as a template
 
@@ -58,6 +59,22 @@ Every tunable parameter lives in one of two centralized, validating knob
 stores. Nothing in the loop or the strategy reads a hard-coded value: each
 match start and each round reads the store, so the AI layer can change
 difficulty parameters mid-game and between games without touching code.
+
+### The match lifecycle
+
+`GameLoop` enforces a lifecycle around the match, loudly:
+
+- `loop.start_match()` begins a match and reads every knob from the store.
+- `loop.play_round(...)` refuses before any match has started.
+- Once a match has played a round, `start_match()` refuses until
+  `loop.finish_match()` closes it — so between-games tuning can never be
+  mistaken for a mid-match reset.
+- Before a match's first round, `start_match()` simply re-reads the freshly
+  tuned store: nothing has been played, so there is nothing to reset.
+
+Knob changes mid-game need no lifecycle call at all: the next
+`play_round()` reads what the store now holds, and strategy knobs are read
+on every `adjust()`.
 
 ### `game_core.MatchKnobs`
 
