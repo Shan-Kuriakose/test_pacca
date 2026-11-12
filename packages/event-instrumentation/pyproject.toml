@@ -1,0 +1,15 @@
+# event-instrumentation implements the EventPublisher port as a standalone
+# module: it imports nothing from game-core, so instrumentation can be swapped
+# (in-memory sink, log sink, real telemetry) without touching the engine.
+[project]
+name = "event-instrumentation"
+version = "0.1.0"
+description = "Event sink implementations of the publisher port; the starting adapter for copied templates."
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+tests = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

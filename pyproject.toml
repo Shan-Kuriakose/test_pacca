@@ -1,0 +1,13 @@
+# Root manifest for the template repository. Each module under packages/
+# carries its own manifest; the root declares only what the whole-repository
+# suite needs. No pytest configuration lives here: the runner puts each
+# package's source on the import path and measures coverage itself.
+[project]
+name = "reusable-ai-game-template"
+version = "0.1.0"
+description = "Scaffold of separable game-core, difficulty-AI and event-instrumentation modules for reuse as a starting template."
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+tests = ["pytest", "pytest-cov"]
