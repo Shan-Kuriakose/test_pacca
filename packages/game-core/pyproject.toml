@@ -1,0 +1,15 @@
+# game-core owns the game loop and its ports. It has zero runtime
+# dependencies: everything concrete (the AI strategy, the event sink) lives
+# behind the ports it defines, implemented by other modules.
+[project]
+name = "game-core"
+version = "0.1.0"
+description = "The game loop and its ports: EventPublisher and AdaptiveDifficulty."
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+tests = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
