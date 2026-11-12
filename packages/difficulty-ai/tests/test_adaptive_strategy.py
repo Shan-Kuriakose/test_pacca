@@ -98,3 +98,44 @@ def test_an_inverted_range_is_refused_loudly():
 def test_the_module_publishes_its_public_surface():
     assert "RuleBasedAdaptiveStrategy" in difficulty_ai.__all__
     assert "DifficultyStepSettings" in difficulty_ai.__all__
+
+
+def test_a_strategy_reads_its_knobs_on_every_adjustment():
+    from difficulty_ai import DifficultyKnobs, RuleBasedAdaptiveStrategy
+
+    knobs = DifficultyKnobs(rise_on_success=0.2)
+    strategy = RuleBasedAdaptiveStrategy(knobs=knobs)
+
+    first = strategy.adjust(0.5, Outcome(player_succeeded=True))
+
+    knobs.update(rise_on_success=0.05)
+
+    second = strategy.adjust(0.5, Outcome(player_succeeded=True))
+
+    assert first == pytest.approx(0.7)
+    assert second == pytest.approx(0.55)
+
+
+def test_a_mid_run_knob_update_changes_the_strategy_without_rewiring():
+    from difficulty_ai import DifficultyKnobs, RuleBasedAdaptiveStrategy
+
+    knobs = DifficultyKnobs()
+    strategy = RuleBasedAdaptiveStrategy(knobs=knobs)
+
+    first = strategy.adjust(0.8, Outcome(player_succeeded=False))
+
+    knobs.update(drop_on_failure=0.05)
+
+    second = strategy.adjust(0.8, Outcome(player_succeeded=False))
+
+    assert first == pytest.approx(0.65)
+    assert second == pytest.approx(0.75)
+
+
+def test_a_knob_update_refuses_unknown_parameters_loudly():
+    from difficulty_ai import DifficultyKnobs
+
+    knobs = DifficultyKnobs()
+
+    with pytest.raises(ValueError, match="suddenness"):
+        knobs.update(suddenness=0.4)
