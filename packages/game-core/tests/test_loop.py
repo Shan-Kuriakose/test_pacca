@@ -38,6 +38,7 @@ def make_loop(strategy_step: float = 0.0) -> tuple[GameLoop, RecordingPublisher,
     publisher = RecordingPublisher()
     strategy = FixedStepStrategy(step=strategy_step)
     loop = GameLoop(event_publisher=publisher, difficulty_strategy=strategy)
+    loop.start_match()
     return loop, publisher, strategy
 
 
@@ -63,7 +64,7 @@ def test_a_round_is_reported_as_started_then_adjusted():
     loop.play_round(player_succeeded=True)
 
     event_names = [event.name for event in publisher.published]
-    assert event_names == ["round.started", "difficulty.adjusted"]
+    assert event_names == ["match.started", "round.started", "difficulty.adjusted"]
 
 
 def test_each_reported_event_carries_the_difficulty_in_force():
@@ -71,7 +72,11 @@ def test_each_reported_event_carries_the_difficulty_in_force():
 
     loop.play_round(player_succeeded=True)
 
-    payloads = [event.payload["difficulty"] for event in publisher.published]
+    payloads = [
+        event.payload["difficulty"]
+        for event in publisher.published
+        if "difficulty" in event.payload
+    ]
     assert payloads == [0.5, 0.6]
 
 
