@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "game-core"
+version = "0.1.0"
+description = "The round loop and the ports it depends on: the template's highest-level policy."
+requires-python = ">=3.10"
+dependencies = []

@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "difficulty-ai"
+version = "0.1.0"
+description = "The adaptive difficulty policy implementing the loop's port, without importing game-core."
+requires-python = ">=3.10"
+dependencies = []
