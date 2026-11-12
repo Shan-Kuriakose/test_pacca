@@ -54,16 +54,20 @@ The loop itself stays as-is: it only ever calls the two ports.
 
 ## Tests
 
-Run the whole suite from the repository root:
+Run the whole suite from the repository root, with the coverage gate the
+project's engineering standard demands:
 
 ```
-python -m pytest
+python -m pytest --cov
 ```
 
-Every module keeps its own tests beside its source
-(`packages/*/tests/`), and the root `tests/` hold the module-scope and
-demo suits. Test-only dependencies (`pytest`, `pytest-cov`) are declared in
-each manifest's `tests` extra. When run with coverage — as this project's
-runner does — the suite is held to the 80% coverage floor from the project's
-engineering standard; the floor lives in the runner, not in the repository,
-so the gate and the standard cannot drift apart.
+This is the repository's own documented command. It runs pytest with
+coverage (pytest-cov, declared in each manifest's `tests` extra), measures
+the three modules' source as configured under `[tool.coverage.run]` in the
+root `pyproject.toml`, and fails the run when coverage falls below the
+standard's 80% floor, which is set as `fail_under` under
+`[tool.coverage.report]`. The gate lives in the repository, so nothing has
+to agree to it: a run that measures under 80% fails here, not only upstream.
+
+Every module keeps its own tests beside its source (`packages/*/tests/`),
+and the root `tests/` hold the module-scope and demo tests.

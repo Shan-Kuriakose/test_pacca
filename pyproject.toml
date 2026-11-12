@@ -1,7 +1,9 @@
 # Root manifest for the template repository. Each module under packages/
 # carries its own manifest; the root declares only what the whole-repository
-# suite needs. No pytest configuration lives here: the runner puts each
-# package's source on the import path and measures coverage itself.
+# suite needs and the coverage gate the engineering standard's 80% floor
+# demands. No pytest section lives here: the runner puts each package's
+# source on the import path itself; the coverage gate is coverage's own
+# configuration, read whenever the suite runs under coverage.
 [project]
 name = "reusable-ai-game-template"
 version = "0.1.0"
@@ -11,3 +13,18 @@ dependencies = []
 
 [project.optional-dependencies]
 tests = ["pytest", "pytest-cov"]
+
+[tool.coverage.run]
+# Measured against the three modules' source; the test packages themselves
+# are not part of what the floor covers.
+source = [
+    "packages/game-core/src",
+    "packages/difficulty-ai/src",
+    "packages/event-instrumentation/src",
+]
+
+[tool.coverage.report]
+# The engineering standard's floor, enforced by the repository's own
+# documented command (see README): a run below this fails, not quietly passes.
+fail_under = 80
+show_missing = true
