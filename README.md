@@ -59,6 +59,11 @@ stores. Nothing in the loop or the strategy reads a hard-coded value: each
 match start and each round reads the store, so the AI layer can change
 difficulty parameters mid-game and between games without touching code.
 
+The loop keeps an explicit match lifecycle around the stores:
+`start_match()` reads every knob and refuses while a match is still in
+progress, `play_round()` refuses before a match has started, and
+`end_match()` closes the match so a new one can read the store fresh.
+
 ### `game_core.MatchKnobs`
 
 The game's own knobs, held by the loop and read on every `start_match()`
@@ -72,12 +77,16 @@ call and every round:
 | `obstacle_count` | `5` | How many obstacles a match places. |
 
 Tune it by calling `update()` — mid-game, where a change reaches the next
-round, or between games, where `start_match()` reads it fresh:
+round, or between games, where `end_match()` closes the running match and
+`start_match()` reads it fresh:
 
 ```python
 knobs = MatchKnobs()          # all defaults
-knobs.update(speed=2.5, board_size=16)
-loop.start_match()            # between games
+loop.start_match()            # the match reads every knob from the store
+knobs.update(speed=2.5)       # mid-game: the next round runs at the new speed
+loop.end_match()              # close the match
+knobs.update(board_size=16)
+loop.start_match()            # between games: the new match reads it
 ```
 
 ### `difficulty_ai.DifficultyKnobs`
@@ -101,7 +110,10 @@ knobs.update(drop_on_failure=0.05)
 
 Both stores validate every change: `update()` refuses an unknown parameter
 name and any invalid value with a loud `ValueError` naming the knob, and it
-validates the whole configuration before a single field moves.
+validates the whole configuration before a single field moves. The loop
+refuses just as loudly: `play_round()` before any `start_match()`, a second
+`start_match()` while a match runs, and `end_match()` with no match running
+all raise `ValueError` stating what is wrong.
 
 ## Tests
 
