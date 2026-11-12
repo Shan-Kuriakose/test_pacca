@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+/*
+ * Neutral tokens, each text pair verified against WCAG 4.5:1 and each
+ * play-surface boundary against 3:1 by tests/token_contrast_meets_wcag.test.ts.
+ */
+:root {
+  --bg-ink: #f4f7fb;
+  --fg-ink: #1f2a37;
+  --bg-board: #10233a;
+  --fg-board: #e8f0fa;
+  --stroke-board: #6fa8dc;
+  --bg-food: #10233a;
+  --fg-food: #ffb703;
+  --bg-action: #1d4ed8;
+  --fg-action: #ffffff;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-ink);
+  color: var(--fg-ink);
+  font-family: system-ui, sans-serif;
+}
+
+.play-board {
+  touch-action: none;
+  border: 2px solid var(--stroke-board);
+  border-radius: 8px;
+  max-width: 100%;
+}
+
+.play-score {
+  color: var(--fg-ink);
+}
+
+.play-restart {
+  background: var(--bg-action);
+  color: var(--fg-action);
+  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  min-height: 44px;
+}
