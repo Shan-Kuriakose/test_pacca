@@ -34,10 +34,17 @@ class FixedStepStrategy:
         return current_difficulty + self._step
 
 
+def an_unstarted_loop() -> GameLoop:
+    """A loop wired with fake ports, with no match running yet."""
+    return GameLoop(event_publisher=RecordingPublisher(), difficulty_strategy=FixedStepStrategy())
+
+
 def make_loop(strategy_step: float = 0.0) -> tuple[GameLoop, RecordingPublisher, FixedStepStrategy]:
+    """Wire a loop with fake ports and start the match it plays rounds in."""
     publisher = RecordingPublisher()
     strategy = FixedStepStrategy(step=strategy_step)
     loop = GameLoop(event_publisher=publisher, difficulty_strategy=strategy)
+    loop.start_match()
     return loop, publisher, strategy
 
 
@@ -57,13 +64,34 @@ def test_a_fresh_loop_sits_at_the_starting_difficulty():
     assert loop.difficulty == 0.5
 
 
+def test_playing_a_round_without_a_started_match_is_refused_loudly():
+    loop = an_unstarted_loop()
+
+    with pytest.raises(ValueError, match="no match is running"):
+        loop.play_round(player_succeeded=True)
+
+
+def test_ending_a_match_without_one_in_progress_is_refused_loudly():
+    loop = an_unstarted_loop()
+
+    with pytest.raises(ValueError, match="no match is in progress to end"):
+        loop.end_match()
+
+
+def test_starting_a_second_match_while_one_runs_is_refused_loudly():
+    loop, _, _ = make_loop()
+
+    with pytest.raises(ValueError, match="a match is already in progress"):
+        loop.start_match()
+
+
 def test_a_round_is_reported_as_started_then_adjusted():
     loop, publisher, _ = make_loop(strategy_step=0.1)
 
     loop.play_round(player_succeeded=True)
 
     event_names = [event.name for event in publisher.published]
-    assert event_names == ["round.started", "difficulty.adjusted"]
+    assert event_names == ["match.started", "round.started", "difficulty.adjusted"]
 
 
 def test_each_reported_event_carries_the_difficulty_in_force():
@@ -71,7 +99,11 @@ def test_each_reported_event_carries_the_difficulty_in_force():
 
     loop.play_round(player_succeeded=True)
 
-    payloads = [event.payload["difficulty"] for event in publisher.published]
+    payloads = [
+        event.payload["difficulty"]
+        for event in publisher.published
+        if "difficulty" in event.payload
+    ]
     assert payloads == [0.5, 0.6]
 
 
@@ -130,6 +162,7 @@ def test_each_new_match_reads_its_parameters_from_the_store():
 
     knobs.update(board_size=20)
     publisher.published.clear()
+    loop.end_match()
     loop.start_match()
 
     (second_match,) = [
