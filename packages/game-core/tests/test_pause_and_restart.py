@@ -133,9 +133,10 @@ def test_restarting_a_dead_match_begins_the_next_round_immediately():
 
     loop.restart()
 
-    next_round = loop.play_round(player_succeeded=True)
     assert loop.match_state is not MatchState.DEAD
     assert loop.difficulty == pytest.approx(0.3)
+
+    next_round = loop.play_round(player_succeeded=True)
     assert next_round.difficulty == pytest.approx(0.4)
 
 
