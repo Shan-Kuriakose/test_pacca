@@ -8,7 +8,7 @@ import os
 import subprocess
 import sys
 
-MODULES_TO_IMPORTS = {
+MODULE_IMPORT_NAMES = {
     "game-core": "game_core",
     "difficulty-ai": "difficulty_ai",
     "event-instrumentation": "event_instrumentation",
@@ -40,7 +40,7 @@ def test_each_module_declares_its_own_manifest_and_imports_alone(repo_root):
     packages_root = repo_root / "packages"
     assert packages_root.is_dir(), "the template must scope its modules under packages/"
 
-    for subdirectory, import_name in MODULES_TO_IMPORTS.items():
+    for subdirectory, import_name in MODULE_IMPORT_NAMES.items():
         module_root = packages_root / subdirectory
         assert module_root.is_dir(), f"module {subdirectory} is missing under packages/"
 
@@ -50,7 +50,7 @@ def test_each_module_declares_its_own_manifest_and_imports_alone(repo_root):
         )
 
         sibling_imports = {
-            name for name in MODULES_TO_IMPORTS.values() if name != import_name
+            name for name in MODULE_IMPORT_NAMES.values() if name != import_name
         }
         _probe_imports_alone(
             repo_root, subdirectory, import_name, sibling_imports

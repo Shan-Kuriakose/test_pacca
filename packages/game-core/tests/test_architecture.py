@@ -31,11 +31,11 @@ def test_game_core_imports_no_adapter_module(repo_root):
     source_files = sorted(game_core_source.rglob("*.py"))
     assert source_files, "game-core module has no source files"
 
-    offences = []
-    for source_file in source_files:
-        for imported in _adapter_imports_in(source_file):
-            offences.append(f"{source_file.relative_to(repo_root)}: {imported}")
-
+    offences = [
+        f"{source_file.relative_to(repo_root)}: {imported}"
+        for source_file in source_files
+        for imported in _adapter_imports_in(source_file)
+    ]
     assert not offences, (
-        f"game-core must not import its adapters:\n" + "\n".join(offences)
+        "game-core must not import its adapters:\n" + "\n".join(offences)
     )

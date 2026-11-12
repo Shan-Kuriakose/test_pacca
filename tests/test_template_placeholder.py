@@ -33,7 +33,11 @@ def test_demo_runs_end_to_end_with_all_three_modules(repo_root):
         f"the demo failed to run end to end:\n{completed.stderr}"
     )
 
-    for module_name in MODULE_NAMES_REPORTED:
-        assert module_name in completed.stdout, (
-            f"the demo does not report wiring {module_name}"
-        )
+    missing_names = [
+        module_name
+        for module_name in MODULE_NAMES_REPORTED
+        if module_name not in completed.stdout
+    ]
+    assert not missing_names, (
+        f"the demo does not report wiring {', '.join(missing_names)}"
+    )
