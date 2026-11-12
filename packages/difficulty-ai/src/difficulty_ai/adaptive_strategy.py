@@ -3,8 +3,12 @@
 A future project keeps the shape and swaps the rules for its own model.
 Everything the strategy needs to know about the player arrives in the
 observation, so the strategy never needs to know the loop.
+
+Its tuning lives in ``DifficultyKnobs``, a mutable store read on every
+adjustment, so the AI layer can retune mid-run without rewiring anything.
 """
 
+import dataclasses
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -21,8 +25,30 @@ class RoundObservation(Protocol):
     def player_succeeded(self) -> bool: ...
 
 
-@dataclass(frozen=True)
-class DifficultyStepSettings:
+class MutableKnobStore:
+    """Refuses unknown parameter names, then re-validates every change.
+
+    The store validates the whole configuration, not just the values passed
+    in, so a half-finished update can never be half-applied: the candidate
+    KnobStore is validated before a single field moves.
+
+    This module shares no imports with game-core, so the two knob stores each
+    carry their own copy of this protocol by design.
+    """
+
+    def update(self, **parameters: object) -> None:
+        unknown = set(parameters) - set(self.__dataclass_fields__)
+        if unknown:
+            raise ValueError(
+                f"unknown parameter name(s): {', '.join(sorted(unknown))}"
+            )
+        candidate = dataclasses.replace(self, **parameters)
+        for field in dataclasses.fields(self):
+            setattr(self, field.name, getattr(candidate, field.name))
+
+
+@dataclass
+class DifficultyKnobs(MutableKnobStore):
     """How far difficulty moves per round, and where it may sit."""
 
     rise_on_success: float = 0.1
@@ -37,11 +63,22 @@ class DifficultyStepSettings:
             raise ValueError("the minimum difficulty must stay below the maximum")
 
 
-class RuleBasedAdaptiveStrategy:
-    """Implements the difficulty port with fixed steps inside fixed bounds."""
+#: Retained under its original name for the template's existing callers.
+DifficultyStepSettings = DifficultyKnobs
 
-    def __init__(self, settings: DifficultyStepSettings | None = None) -> None:
-        self._settings = settings if settings is not None else DifficultyStepSettings()
+
+class RuleBasedAdaptiveStrategy:
+    """Implements the difficulty port with knobs read on every adjustment."""
+
+    def __init__(
+        self,
+        settings: DifficultyKnobs | None = None,
+        *,
+        knobs: DifficultyKnobs | None = None,
+    ) -> None:
+        self._settings = knobs if knobs is not None else (
+            settings if settings is not None else DifficultyKnobs()
+        )
 
     def adjust(self, current_difficulty: float, observation: RoundObservation) -> float:
         """Move the difficulty one step in the direction the round implies."""

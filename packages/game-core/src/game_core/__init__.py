@@ -8,6 +8,7 @@ event sink) is supplied from outside as an adapter.
 from game_core.difficulty import DifficultyObservation, AdaptiveDifficulty
 from game_core.events import DomainEvent, EventPublisher
 from game_core.loop import GameLoop, RoundResult
+from game_core.match_parameters import MatchKnobs
 
 __all__ = [
     "AdaptiveDifficulty",
@@ -15,5 +16,6 @@ __all__ = [
     "DomainEvent",
     "EventPublisher",
     "GameLoop",
+    "MatchKnobs",
     "RoundResult",
 ]

@@ -5,8 +5,9 @@ copied templates keep this swap point without tangled dependencies.
 """
 
 from difficulty_ai.adaptive_strategy import (
+    DifficultyKnobs,
     DifficultyStepSettings,
     RuleBasedAdaptiveStrategy,
 )
 
-__all__ = ["DifficultyStepSettings", "RuleBasedAdaptiveStrategy"]
+__all__ = ["DifficultyKnobs", "DifficultyStepSettings", "RuleBasedAdaptiveStrategy"]
