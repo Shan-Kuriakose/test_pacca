@@ -100,3 +100,64 @@ def test_the_loop_adopts_whatever_difficulty_the_strategy_returns():
 
     assert result.difficulty == 0.6
     assert loop.difficulty == 0.6
+
+
+def test_each_new_match_reads_its_parameters_from_the_store():
+    from game_core import MatchKnobs
+
+    knobs = MatchKnobs(
+        starting_difficulty=0.7, speed=1.5, board_size=12, obstacle_count=4
+    )
+    publisher = RecordingPublisher()
+    loop = GameLoop(
+        event_publisher=publisher,
+        difficulty_strategy=FixedStepStrategy(),
+        knobs=knobs,
+    )
+
+    loop.start_match()
+
+    (match_started,) = [
+        event for event in publisher.published if event.name == "match.started"
+    ]
+    assert match_started.payload == {
+        "starting_difficulty": 0.7,
+        "speed": 1.5,
+        "board_size": 12,
+        "obstacle_count": 4,
+    }
+    assert loop.difficulty == 0.7
+
+    knobs.update(board_size=20)
+    publisher.published.clear()
+    loop.start_match()
+
+    (second_match,) = [
+        event for event in publisher.published if event.name == "match.started"
+    ]
+    assert second_match.payload["board_size"] == 20
+
+
+def test_a_midgame_knob_update_reaches_the_next_round():
+    from game_core import MatchKnobs
+
+    knobs = MatchKnobs(speed=1.0)
+    publisher = RecordingPublisher()
+    loop = GameLoop(
+        event_publisher=publisher,
+        difficulty_strategy=FixedStepStrategy(),
+        knobs=knobs,
+    )
+
+    loop.start_match()
+    loop.play_round(player_succeeded=True)
+    knobs.update(speed=3.0)
+    loop.play_round(player_succeeded=True)
+
+    round_started_payloads = [
+        event.payload
+        for event in publisher.published
+        if event.name == "round.started"
+    ]
+    assert round_started_payloads[0]["speed"] == 1.0
+    assert round_started_payloads[1]["speed"] == 3.0

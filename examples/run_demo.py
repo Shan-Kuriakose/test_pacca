@@ -2,8 +2,9 @@
 
 Run from a clean checkout with ``python examples/run_demo.py``. The script
 wires the loop (game-core) to the rule-based strategy (difficulty-ai) and the
-in-memory sink (event-instrumentation), plays a few rounds, and reports what
-was recorded -- with no network access and no credentials.
+in-memory sink (event-instrumentation), plays a few rounds, tunes the knob
+stores to show the knob interface, and reports what was recorded -- with no
+network access and no credentials.
 
 A future project copies the repository and replaces exactly two things: the
 rules inside difficulty-ai, and the sink inside event-instrumentation.
@@ -23,16 +24,35 @@ def make_module_sources_importable() -> None:
         sys.path.insert(0, str(source_root))
 
 
-def wire_the_template() -> tuple[object, object]:
-    """Connect the loop to its two adapters, outside of game-core."""
-    from difficulty_ai import RuleBasedAdaptiveStrategy
+def wire_the_template() -> tuple[object, object, object, object]:
+    """Connect the loop to its adapters and knob stores, outside game-core."""
+    from difficulty_ai import DifficultyKnobs, RuleBasedAdaptiveStrategy
     from event_instrumentation import InMemoryEventSink
-    from game_core import GameLoop
+    from game_core import GameLoop, MatchKnobs
 
     sink = InMemoryEventSink()
-    strategy = RuleBasedAdaptiveStrategy()
-    loop = GameLoop(event_publisher=sink, difficulty_strategy=strategy)
-    return loop, sink
+    difficulty_knobs = DifficultyKnobs()
+    strategy = RuleBasedAdaptiveStrategy(difficulty_knobs)
+    match_knobs = MatchKnobs()
+    loop = GameLoop(
+        event_publisher=sink, difficulty_strategy=strategy, knobs=match_knobs
+    )
+    return loop, sink, match_knobs, difficulty_knobs
+
+
+def play_demo_rounds(loop: object) -> None:
+    """Play the scripted rounds so the loop adjusts the difficulty."""
+    loop.start_match()
+    for player_succeeded in ROUNDS_TO_PLAY:
+        loop.play_round(player_succeeded=player_succeeded)
+
+
+def tune_the_knobs(loop: object, match_knobs: object, difficulty_knobs: object) -> None:
+    """Show mid-game and between-games tuning through the knob interface."""
+    match_knobs.update(speed=2.0, board_size=14)
+    difficulty_knobs.update(rise_on_success=0.2)
+    loop.start_match()
+    loop.play_round(player_succeeded=True)
 
 
 def play_demo_rounds(loop: object) -> None:
@@ -52,8 +72,9 @@ def report_the_run(loop: object, sink: object) -> None:
 
 def main() -> int:
     make_module_sources_importable()
-    loop, sink = wire_the_template()
+    loop, sink, match_knobs, difficulty_knobs = wire_the_template()
     play_demo_rounds(loop)
+    tune_the_knobs(loop, match_knobs, difficulty_knobs)
     report_the_run(loop, sink)
     return 0
 

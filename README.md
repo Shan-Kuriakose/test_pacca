@@ -52,6 +52,57 @@ Copy the tree, then swap two things and nothing else:
 
 The loop itself stays as-is: it only ever calls the two ports.
 
+## The knob interface
+
+Every tunable parameter lives in one of two centralized, validating knob
+stores. Nothing in the loop or the strategy reads a hard-coded value: each
+match start and each round reads the store, so the AI layer can change
+difficulty parameters mid-game and between games without touching code.
+
+### `game_core.MatchKnobs`
+
+The game's own knobs, held by the loop and read on every `start_match()`
+call and every round:
+
+| Knob | Default | Meaning |
+| --- | --- | --- |
+| `starting_difficulty` | `0.5` | The difficulty every match begins at. |
+| `speed` | `1.0` | How fast the game runs. |
+| `board_size` | `10` | The playfield's size. |
+| `obstacle_count` | `5` | How many obstacles a match places. |
+
+Tune it by calling `update()` — mid-game, where a change reaches the next
+round, or between games, where `start_match()` reads it fresh:
+
+```python
+knobs = MatchKnobs()          # all defaults
+knobs.update(speed=2.5, board_size=16)
+loop.start_match()            # between games
+```
+
+### `difficulty_ai.DifficultyKnobs`
+
+The strategy's knobs, read on every `adjust()` call. (The original template
+name `DifficultyStepSettings` still names the same store.)
+
+| Knob | Default | Meaning |
+| --- | --- | --- |
+| `rise_on_success` | `0.1` | How far a won round raises difficulty. |
+| `drop_on_failure` | `0.15` | How far a lost round lowers difficulty. |
+| `minimum_difficulty` | `0.1` | The floor difficulty clamps to. |
+| `maximum_difficulty` | `1.0` | The ceiling difficulty clamps to. |
+
+Tune it the same way, mid-run without rewiring:
+
+```python
+knobs = DifficultyKnobs()
+knobs.update(drop_on_failure=0.05)
+```
+
+Both stores validate every change: `update()` refuses an unknown parameter
+name and any invalid value with a loud `ValueError` naming the knob, and it
+validates the whole configuration before a single field moves.
+
 ## Tests
 
 Run the whole suite from the repository root:
