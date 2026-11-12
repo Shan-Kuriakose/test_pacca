@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-game-template"
+version = "0.1.0"
+description = "A reusable scaffold of separable game-core, difficulty-ai and event-instrumentation modules."
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-cov"]
+
+[tool.coverage.report]
+# The engineering standard's floor for the whole suite; the plan sets it here
+# so CI enforces it rather than review discipline.
+fail_under = 80

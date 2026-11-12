@@ -1,0 +1,21 @@
+# Python build artifacts and caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Test and coverage artifacts
+.pytest_cache/
+.coverage
+.coverage.*
+coverage/
+htmlcov/
+
+# Environments
+.venv/
+venv/
+
+# Coverage data must not live in the checkout
+*.cover
