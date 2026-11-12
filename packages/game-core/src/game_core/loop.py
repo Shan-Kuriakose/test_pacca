@@ -6,7 +6,9 @@ wires an unconfigured port must fail loudly here, not silently degrade.
 
 Every tunable -- starting difficulty, speed, board size, obstacle count --
 is read from the injected knob store on each match start and each round,
-never from a literal.
+never from a literal. The loop keeps an explicit match lifecycle: a round
+cannot run before a match starts, a match cannot restart while it runs, and
+``end_match()`` marks the boundary the between-games tuning reads across.
 """
 
 from dataclasses import dataclass
@@ -54,6 +56,7 @@ class GameLoop:
         )
         self._knobs = knobs if knobs is not None else MatchKnobs()
         self._difficulty = self._knobs.starting_difficulty
+        self._match_in_progress = False
 
     @property
     def difficulty(self) -> float:
@@ -62,20 +65,27 @@ class GameLoop:
 
     def start_match(self) -> None:
         """Begin a match by reading every tunable from the knob store."""
+        if self._match_in_progress:
+            raise ValueError(
+                "a match is already in progress; end it before starting another"
+            )
+        self._match_in_progress = True
         self._difficulty = self._knobs.starting_difficulty
-        self._publish(
-            MATCH_STARTED_EVENT,
-            {
-                "starting_difficulty": self._knobs.starting_difficulty,
-                "speed": self._knobs.speed,
-                "board_size": self._knobs.board_size,
-                "obstacle_count": self._knobs.obstacle_count,
-            },
-        )
+        self._publish(MATCH_STARTED_EVENT, self._match_parameters_reported())
+
+    def end_match(self) -> None:
+        """Mark the match finished, freeing the loop to start a new one."""
+        if not self._match_in_progress:
+            raise ValueError("no match is in progress to end")
+        self._match_in_progress = False
 
     def play_round(self, player_succeeded: bool) -> RoundResult:
         """Run one round: report it, then hand the outcome to the strategy."""
-        self._publish(ROUND_STARTED_EVENT, self._parameters_in_force())
+        if not self._match_in_progress:
+            raise ValueError(
+                "no match is running; call start_match() to begin one"
+            )
+        self._publish(ROUND_STARTED_EVENT, self._round_parameters_in_force())
         observation = DifficultyObservation(player_succeeded=player_succeeded)
         self._difficulty = self._difficulty_strategy.adjust(
             self._difficulty, observation
@@ -85,13 +95,24 @@ class GameLoop:
             difficulty=self._difficulty, player_succeeded=player_succeeded
         )
 
-    def _parameters_in_force(self) -> dict[str, Any]:
+    def _physical_parameters_from_the_store(self) -> dict[str, Any]:
+        """The three physical tunables exactly as the store holds them."""
+        return {
+            "speed": self._knobs.speed,
+            "board_size": self._knobs.board_size,
+            "obstacle_count": self._knobs.obstacle_count,
+        }
+
+    def _match_parameters_reported(self) -> dict[str, Any]:
+        parameters: dict[str, Any] = {
+            "starting_difficulty": self._knobs.starting_difficulty
+        }
+        parameters.update(self._physical_parameters_from_the_store())
+        return parameters
+
+    def _round_parameters_in_force(self) -> dict[str, Any]:
         parameters: dict[str, Any] = {"difficulty": self._difficulty}
-        parameters.update(
-            speed=self._knobs.speed,
-            board_size=self._knobs.board_size,
-            obstacle_count=self._knobs.obstacle_count,
-        )
+        parameters.update(self._physical_parameters_from_the_store())
         return parameters
 
     def _publish(self, event_name: str, payload: Mapping[str, Any]) -> None:
