@@ -95,6 +95,16 @@ def test_an_inverted_range_is_refused_loudly():
         make_strategy(minimum_difficulty=0.9, maximum_difficulty=0.2)
 
 
+def test_the_default_strategy_retunes_within_bounds_on_restart():
+    strategy = make_strategy()
+
+    unchanged = strategy.restarted_match(0.5)
+
+    assert unchanged == pytest.approx(0.5)
+    assert strategy.restarted_match(1.5) == pytest.approx(1.0)
+    assert strategy.restarted_match(0.05) == pytest.approx(0.1)
+
+
 def test_the_module_publishes_its_public_surface():
     assert "RuleBasedAdaptiveStrategy" in difficulty_ai.__all__
     assert "DifficultyStepSettings" in difficulty_ai.__all__
