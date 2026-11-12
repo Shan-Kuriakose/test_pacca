@@ -8,7 +8,7 @@ and its instrumentation already exists before any of them grows.
 
 | Module | Owns | Depends on |
 | --- | --- | --- |
-| `packages/game-core` | The game loop and its two ports: `EventPublisher` and `AdaptiveDifficulty`. | Nothing at runtime. |
+| `packages/game-core` | The game loop, the match lifecycle (`MatchState` with pause, death and restart) and its two ports: `EventPublisher` and `AdaptiveDifficulty`. | Nothing at runtime. |
 | `packages/difficulty-ai` | `RuleBasedAdaptiveStrategy`, the default implementation of the difficulty port. | Only its own contracts. It imports nothing from game-core. |
 | `packages/event-instrumentation` | `InMemoryEventSink`, the starting implementation of the event port. | Only its own contracts. It imports nothing from game-core. |
 
@@ -33,9 +33,31 @@ The rule is enforced by tests, not by review:
 python examples/run_demo.py
 ```
 
-It wires all three modules, plays a few rounds, and prints the difficulty the
-strategy reached and the events the sink recorded. No network access and no
+It wires all three modules, plays a few rounds, pauses and resumes
+mid-match, then dies and restarts, and prints the difficulty the strategy
+reached and the events the sink recorded. No network access and no
 credentials are needed.
+
+## The match lifecycle
+
+A match moves through `MatchState.LIVE`, `MatchState.PAUSED` and
+`MatchState.DEAD`, and every transition is published as a domain event
+(`game.paused`, `game.resumed`, `match.ended`, `match.restarted`):
+
+- `pause()` freezes a live match; play is refused while paused, and
+  `resume()` opens play exactly where it froze -- the difficulty trajectory
+  does not move while the match is down.
+- Losing a round ends the match: `match.ended` is published and play is
+  then refused until a restart.
+- `restart()` is valid only on a dead match. It asks the difficulty
+  strategy's between-games hook, `restarted_match(difficulty_after_death)`,
+  for the new match's opening difficulty, adopts that retune, and play
+  opens immediately. Which retune is chosen is entirely the strategy's
+  answer; the loop only adopts it.
+
+Every refusal -- playing while paused or dead, pausing twice, resuming a
+live match, restarting a live match -- raises `ValueError`, following the
+template's fail-loudly convention.
 
 ## Using this repository as a template
 
@@ -43,8 +65,9 @@ Copy the tree, then swap two things and nothing else:
 
 1. **The adaptive pattern** — replace the rules inside
    `packages/difficulty-ai` with your model. Anything that reads an
-   observation with `player_succeeded` and returns the next difficulty
-   satisfies the port; no engine change ships with it.
+   observation with `player_succeeded` and returns the next difficulty,
+   and retunes between games through `restarted_match`, satisfies the
+   port; no engine change ships with it.
 2. **The event sink** — replace `InMemoryEventSink` in
    `packages/event-instrumentation` with your real destination (a message
    bus, a warehouse). A new destination means writing another

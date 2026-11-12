@@ -51,6 +51,10 @@ class RuleBasedAdaptiveStrategy:
             step = -self._settings.drop_on_failure
         return self._clamped_to_bounds(current_difficulty + step)
 
+    def restarted_match(self, difficulty_after_death: float) -> float:
+        """Retune between games: the default keeps the difficulty as it died."""
+        return self._clamped_to_bounds(difficulty_after_death)
+
     def _clamped_to_bounds(self, difficulty: float) -> float:
         return min(
             self._settings.maximum_difficulty,

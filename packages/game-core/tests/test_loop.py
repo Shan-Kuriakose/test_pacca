@@ -33,6 +33,9 @@ class FixedStepStrategy:
         self.observed.append(observation)
         return current_difficulty + self._step
 
+    def restarted_match(self, difficulty_after_death: float) -> float:
+        return difficulty_after_death
+
 
 def make_loop(strategy_step: float = 0.0) -> tuple[GameLoop, RecordingPublisher, FixedStepStrategy]:
     publisher = RecordingPublisher()
@@ -100,3 +103,16 @@ def test_the_loop_adopts_whatever_difficulty_the_strategy_returns():
 
     assert result.difficulty == 0.6
     assert loop.difficulty == 0.6
+
+
+def test_the_rounds_played_count_up_per_match_and_reset_on_restart():
+    loop, _, _ = make_loop()
+
+    loop.play_round(player_succeeded=True)
+    loop.play_round(player_succeeded=False)
+
+    assert loop.rounds_played == 2
+
+    loop.restart()
+
+    assert loop.rounds_played == 0

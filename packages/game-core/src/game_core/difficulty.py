@@ -22,3 +22,7 @@ class AdaptiveDifficulty(Protocol):
     def adjust(
         self, current_difficulty: float, observation: DifficultyObservation
     ) -> float: ...
+
+    def restarted_match(self, difficulty_after_death: float) -> float:
+        """Retune between games: the hook point a restart consults."""
+        ...
