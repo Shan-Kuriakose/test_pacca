@@ -5,6 +5,8 @@ obstacle count are read from here on every match and every round, so the AI
 layer can tune them mid-game and between games without touching the loop.
 """
 
+import math
+
 import dataclasses
 from dataclasses import dataclass
 
@@ -28,6 +30,22 @@ class MutableKnobStore:
             setattr(self, field.name, getattr(candidate, field.name))
 
 
+def _refuse_unreal_numbers(knob_name: str, value: object) -> float:
+    """The value as a finite real number, or a loud refusal naming the knob."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{knob_name} must be a real number, not {value!r}")
+    if not math.isfinite(value):
+        raise ValueError(f"{knob_name} must be a finite number, not {value!r}")
+    return float(value)
+
+
+def _refuse_non_whole_numbers(knob_name: str, value: object) -> int:
+    """The value as a whole number, or a loud refusal naming the knob."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{knob_name} must be a whole number, not {value!r}")
+    return value
+
+
 @dataclass
 class MatchKnobs(MutableKnobStore):
     """Every tunable the loop reads, mutable so tuning needs no code change."""
@@ -38,6 +56,14 @@ class MatchKnobs(MutableKnobStore):
     obstacle_count: int = 5
 
     def __post_init__(self) -> None:
+        self.starting_difficulty = _refuse_unreal_numbers(
+            "starting_difficulty", self.starting_difficulty
+        )
+        self.speed = _refuse_unreal_numbers("speed", self.speed)
+        self.board_size = _refuse_non_whole_numbers("board_size", self.board_size)
+        self.obstacle_count = _refuse_non_whole_numbers(
+            "obstacle_count", self.obstacle_count
+        )
         if self.speed <= 0:
             raise ValueError("speed must be positive")
         if self.board_size <= 0:

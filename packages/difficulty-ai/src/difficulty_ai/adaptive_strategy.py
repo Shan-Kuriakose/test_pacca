@@ -8,6 +8,8 @@ Its tuning lives in ``DifficultyKnobs``, a mutable store read on every
 adjustment, so the AI layer can retune mid-run without rewiring anything.
 """
 
+import math
+
 import dataclasses
 from dataclasses import dataclass
 from typing import Protocol
@@ -47,6 +49,20 @@ class MutableKnobStore:
             setattr(self, field.name, getattr(candidate, field.name))
 
 
+def _refuse_unreal_numbers(knob_name: str, value: object) -> float:
+    """The value as a finite real number, or a loud refusal naming the knob.
+
+    This module shares no imports with game-core, so it carries its own copy
+    of this validation by the same design that duplicates the knob-store
+    protocol above.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{knob_name} must be a real number, not {value!r}")
+    if not math.isfinite(value):
+        raise ValueError(f"{knob_name} must be a finite number, not {value!r}")
+    return float(value)
+
+
 @dataclass
 class DifficultyKnobs(MutableKnobStore):
     """How far difficulty moves per round, and where it may sit."""
@@ -57,6 +73,18 @@ class DifficultyKnobs(MutableKnobStore):
     maximum_difficulty: float = 1.0
 
     def __post_init__(self) -> None:
+        self.rise_on_success = _refuse_unreal_numbers(
+            "rise_on_success", self.rise_on_success
+        )
+        self.drop_on_failure = _refuse_unreal_numbers(
+            "drop_on_failure", self.drop_on_failure
+        )
+        self.minimum_difficulty = _refuse_unreal_numbers(
+            "minimum_difficulty", self.minimum_difficulty
+        )
+        self.maximum_difficulty = _refuse_unreal_numbers(
+            "maximum_difficulty", self.maximum_difficulty
+        )
         if self.rise_on_success < 0 or self.drop_on_failure < 0:
             raise ValueError("difficulty steps must never be negative")
         if self.minimum_difficulty >= self.maximum_difficulty:
