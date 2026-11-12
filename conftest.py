@@ -1,7 +1,8 @@
 """Shared fixtures for the scaffold's acceptance tests."""
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 
 @pytest.fixture
