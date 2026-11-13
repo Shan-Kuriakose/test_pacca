@@ -1,4 +1,4 @@
-"""AC3: the knob interface is documented in the README.
+"""AC2: the knob interface is documented in the README.
 
 The documentation must name both knob stores, every knob each holds, and
 the entry points AI tuning and the match lifecycle go through.

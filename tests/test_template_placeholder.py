@@ -86,7 +86,14 @@ def test_the_copied_template_test_suite_passes_in_the_copy(repo_root, tmp_path):
     copied_template = a_clean_copy_without_checkout_state(
         repo_root, tmp_path / "template-copy"
     )
-    completed = the_test_suite_run_in(copied_template)
+    try:
+        completed = the_test_suite_run_in(copied_template)
+    except subprocess.TimeoutExpired:
+        pytest.fail(
+            "the suite hung inside the copied template instead of finishing: "
+            "repository resolution does not terminate in a tree with no "
+            ".git anywhere"
+        )
 
     assert completed.returncode == 0, (
         "the suite must pass inside a copied template with no .git "
