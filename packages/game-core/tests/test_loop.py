@@ -171,7 +171,115 @@ def test_each_new_match_reads_its_parameters_from_the_store():
     assert second_match.payload["board_size"] == 20
 
 
-def test_a_midgame_knob_update_reaches_the_next_round():
+def test_pausable_match_refuses_rounds_while_paused_and_keeps_the_difficulty_in_force():
+    loop, _, _ = make_loop(strategy_step=0.1)
+    loop.play_round(player_succeeded=True)
+
+    loop.pause()
+
+    with pytest.raises(ValueError, match="paused"):
+        loop.play_round(player_succeeded=True)
+    assert loop.difficulty == 0.6
+
+
+def test_resume_restarts_round_play_from_the_same_difficulty():
+    loop, _, _ = make_loop(strategy_step=0.1)
+    loop.play_round(player_succeeded=True)
+    loop.pause()
+    loop.resume()
+
+    result = loop.play_round(player_succeeded=True)
+
+    assert result.difficulty == 0.7
+    assert loop.difficulty == 0.7
+
+
+def test_pause_and_resume_are_reported_as_events_and_publish_nothing_between_them():
+    loop, publisher, _ = make_loop()
+    loop.pause()
+
+    (pause_event,) = [
+        event for event in publisher.published if event.name == "match.paused"
+    ]
+    published_while_paused = [
+        event
+        for event in publisher.published
+        if event.name not in {"match.started", "match.paused"}
+    ]
+    assert published_while_paused == []
+
+    loop.resume()
+
+    resume_events = [
+        event.name
+        for event in publisher.published
+        if event.name in {"match.paused", "match.resumed"}
+    ]
+    assert pause_event.payload == {}
+    assert resume_events == ["match.paused", "match.resumed"]
+
+
+def test_a_lost_round_followed_by_restart_begins_a_live_match_publishing_a_fresh_match_started():
+    loop, publisher, _ = make_loop()
+
+    loop.play_round(player_succeeded=False)
+    loop.restart()
+
+    (fresh_match_started,) = [
+        event for event in publisher.published if event.name == "match.started"
+    ]
+    fresh_round = loop.play_round(player_succeeded=True)
+    assert fresh_match_started.payload == {
+        "starting_difficulty": 0.5,
+        "speed": 1.0,
+        "board_size": 10,
+        "obstacle_count": 5,
+    }
+    assert fresh_round.difficulty == 0.5
+
+
+def test_a_new_round_after_restart_is_reported_as_started_on_the_fresh_match():
+    loop, publisher, _ = make_loop(strategy_step=0.1)
+    loop.play_round(player_succeeded=False)
+    publisher.published.clear()
+
+    loop.restart()
+    loop.play_round(player_succeeded=True)
+
+    event_names = [event.name for event in publisher.published]
+    assert event_names == [
+        "match.started",
+        "round.started",
+        "difficulty.adjusted",
+    ]
+
+
+def test_a_restart_reads_freshly_retuned_parameters_from_the_knob_store():
+    from game_core import MatchKnobs
+
+    knobs = MatchKnobs(starting_difficulty=0.5, speed=1.0, board_size=10)
+    publisher = RecordingPublisher()
+    loop = GameLoop(
+        event_publisher=publisher,
+        difficulty_strategy=FixedStepStrategy(),
+        knobs=knobs,
+    )
+    loop.start_match()
+    loop.play_round(player_succeeded=False)
+
+    knobs.update(starting_difficulty=0.8, speed=2.5, board_size=16)
+    loop.restart()
+
+    (fresh_match,) = [
+        event for event in publisher.published if event.name == "match.started"
+    ]
+    assert fresh_match.payload == {
+        "starting_difficulty": 0.8,
+        "speed": 2.5,
+        "board_size": 16,
+        "obstacle_count": 5,
+    }
+    assert loop.difficulty == 0.8
     from game_core import MatchKnobs
 
     knobs = MatchKnobs(speed=1.0)
