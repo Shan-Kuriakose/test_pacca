@@ -24,7 +24,7 @@ def adapter_imports_in(source_file):
 
 
 def test_game_core_imports_no_adapter_module():
-    module_root = Path(__file__).resolve().parents[2]
+    module_root = Path(__file__).resolve().parent.parent
     source_root = module_root / "src"
     assert source_root.is_dir(), "game-core module source is missing"
 
