@@ -2,23 +2,13 @@
 
 The loop reports how a round went and asks for the next difficulty. Which
 rule, heuristic or model produces that number is a detail of the adapter,
-never of the loop.
+never of the loop. The contract itself stays in a versioned file that
+adapters can pin exactly.
 """
 
-from dataclasses import dataclass
-from typing import Protocol
+from game_core.contracts.adaptive_difficulty.v1 import (
+    AdaptiveDifficulty,
+    DifficultyObservation,
+)
 
-
-@dataclass(frozen=True)
-class DifficultyObservation:
-    """What the loop learned from one finished round."""
-
-    player_succeeded: bool
-
-
-class AdaptiveDifficulty(Protocol):
-    """Port the loop calls between rounds; the AI layer implements it."""
-
-    def adjust(
-        self, current_difficulty: float, observation: DifficultyObservation
-    ) -> float: ...
+__all__ = ["AdaptiveDifficulty", "DifficultyObservation"]

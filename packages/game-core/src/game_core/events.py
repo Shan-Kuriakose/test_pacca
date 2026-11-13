@@ -2,22 +2,13 @@
 
 game-core defines only the contract: what happened and a small payload. Any
 real destination (an in-memory sink, a log, telemetry) is an adapter that
-implements the port and lives outside this module.
+implements the port and lives outside this module. The contract itself stays
+in a versioned file that adapters can pin exactly.
 """
 
-from dataclasses import dataclass, field
-from typing import Any, Mapping, Protocol
+from game_core.contracts.event_publisher.v1 import (
+    DomainEvent,
+    EventPublisher,
+)
 
-
-@dataclass(frozen=True)
-class DomainEvent:
-    """Something that happened in the game that the loop wants observed."""
-
-    name: str
-    payload: Mapping[str, Any] = field(default_factory=dict)
-
-
-class EventPublisher(Protocol):
-    """Port every event destination must satisfy; adapters implement it."""
-
-    def publish(self, event: DomainEvent) -> None: ...
+__all__ = ["DomainEvent", "EventPublisher"]
