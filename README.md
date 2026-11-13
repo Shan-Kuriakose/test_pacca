@@ -30,7 +30,7 @@ The rule is enforced by tests, not by review:
 ## Run the demo
 
 ```
-python examples/run_demo.py
+python3 examples/run_demo.py
 ```
 
 It wires all three modules, plays a few rounds, and prints the difficulty the
@@ -120,7 +120,7 @@ all raise `ValueError` stating what is wrong.
 Run the whole suite from the repository root:
 
 ```
-python -m pytest
+python3 -m pytest
 ```
 
 Every module keeps its own tests beside its source
