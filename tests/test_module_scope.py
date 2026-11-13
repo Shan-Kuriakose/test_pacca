@@ -1,57 +1,58 @@
-"""AC1: game-core, difficulty-AI and event-instrumentation are independently scoped modules.
+"""AC1: every scaffold module can travel and be tested as its own package."""
 
-Each module lives in its own directory under packages/, declares its own
-manifest, and imports with nothing but its own source on the path.
-"""
-
-import os
+import shutil
 import subprocess
 import sys
-
-MODULES_TO_IMPORTS = {
-    "game-core": "game_core",
-    "difficulty-ai": "difficulty_ai",
-    "event-instrumentation": "event_instrumentation",
-}
+from pathlib import Path
 
 
-def _probe_imports_alone(repo_root, subdirectory, import_name, sibling_imports):
-    """Import one module in a subprocess whose path holds only its own source."""
-    source_root = repo_root / "packages" / subdirectory / "src"
-    environment = dict(os.environ)
-    environment["PYTHONPATH"] = str(source_root)
-    probe = f"import sys\nimport {import_name}\n"
-    probe += f"assert not any(name in sys.modules for name in {sorted(sibling_imports)!r})\n"
-    completed = subprocess.run(
-        [sys.executable, "-c", probe],
-        capture_output=True,
-        text=True,
-        cwd=repo_root,
-        env=environment,
-        timeout=60,
+MODULE_PACKAGES = ("game-core", "difficulty-ai", "event-instrumentation")
+TEST_SUITE_TIMEOUT_SECONDS = 120
+
+
+def a_module_copy_without_checkout_state(module_root, copy_root):
+    ignore_checkout_state = shutil.ignore_patterns(
+        ".git",
+        "__pycache__",
+        ".pytest_cache",
+        "*.egg-info",
     )
-    assert completed.returncode == 0, (
-        f"{subdirectory} does not import on its own:\n{completed.stderr}"
+    shutil.copytree(
+        module_root,
+        copy_root,
+        ignore=ignore_checkout_state,
+        dirs_exist_ok=False,
     )
-    return completed
+    return copy_root
 
 
-def test_each_module_declares_its_own_manifest_and_imports_alone(repo_root):
-    packages_root = repo_root / "packages"
-    assert packages_root.is_dir(), "the template must scope its modules under packages/"
+def test_each_module_declares_its_own_manifest_and_imports_alone(tmp_path):
+    packages_root = Path(__file__).resolve().parents[1] / "packages"
+    assert packages_root.is_dir(), "the scaffold must scope its modules under packages/"
 
-    for subdirectory, import_name in MODULES_TO_IMPORTS.items():
-        module_root = packages_root / subdirectory
-        assert module_root.is_dir(), f"module {subdirectory} is missing under packages/"
-
+    for module_name in MODULE_PACKAGES:
+        module_root = packages_root / module_name
         manifest = module_root / "pyproject.toml"
-        assert manifest.is_file(), (
-            f"{subdirectory} has no pyproject.toml of its own to scope it"
-        )
+        source_root = module_root / "src"
 
-        sibling_imports = {
-            name for name in MODULES_TO_IMPORTS.values() if name != import_name
-        }
-        _probe_imports_alone(
-            repo_root, subdirectory, import_name, sibling_imports
+        assert manifest.is_file(), (
+            f"{module_name} has no pyproject.toml of its own to scope it"
+        )
+        assert source_root.is_dir(), f"{module_name} has no src/ source directory"
+
+        copied_suite = a_module_copy_without_checkout_state(
+            module_root,
+            tmp_path / f"{module_name}-copy",
+        )
+        suite = subprocess.run(
+            [sys.executable, "-m", "pytest", "-q"],
+            capture_output=True,
+            text=True,
+            cwd=copied_suite,
+            timeout=TEST_SUITE_TIMEOUT_SECONDS,
+        )
+        assert suite.returncode == 0, (
+            f"{module_name} is not an independently scoped package because "
+            "its own tests do not run in a checkout-independent copy:\n"
+            f"{suite.stdout}\n{suite.stderr}"
         )
