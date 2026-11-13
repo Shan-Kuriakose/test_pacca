@@ -194,3 +194,34 @@ def test_a_midgame_knob_update_reaches_the_next_round():
     ]
     assert round_started_payloads[0]["speed"] == 1.0
     assert round_started_payloads[1]["speed"] == 3.0
+
+
+def test_a_midgame_starting_difficulty_update_waits_for_the_next_match():
+    from game_core import MatchKnobs
+
+    knobs = MatchKnobs(starting_difficulty=0.5)
+    publisher = RecordingPublisher()
+    loop = GameLoop(
+        event_publisher=publisher,
+        difficulty_strategy=FixedStepStrategy(),
+        knobs=knobs,
+    )
+
+    loop.start_match()
+    loop.play_round(player_succeeded=True)
+    knobs.update(starting_difficulty=0.8, speed=2.0)
+
+    assert loop.difficulty == 0.5, (
+        "a starting_difficulty change mid-match may not disturb the "
+        "difficulty the running match is already playing at"
+    )
+
+    loop.end_match()
+    loop.start_match()
+
+    (second_match_started,) = [
+        event for event in publisher.published if event.name == "match.started"
+    ][1:]
+    assert second_match_started.payload["starting_difficulty"] == 0.8
+    assert second_match_started.payload["speed"] == 2.0
+    assert loop.difficulty == 0.8
