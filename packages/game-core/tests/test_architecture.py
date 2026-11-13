@@ -1,41 +1,46 @@
-"""AC3: the AI layer is not entangled with game loop internals.
-
-game-core owns the ports; the adapters (difficulty-ai, event-instrumentation)
-implement them. The dependency rule is checked here as a test, not by review:
-the game-core source must never import an adapter module.
-"""
+"""AC3: game-core calls AI and instrumentation only through inward ports."""
 
 import ast
+from pathlib import Path
+
 
 ADAPTER_TOP_LEVEL_NAMES = {"difficulty_ai", "event_instrumentation"}
 
 
-def _adapter_imports_in(source_file):
+def adapter_imports_in(source_file):
     tree = ast.parse(source_file.read_text(encoding="utf-8"))
-    imports = []
+    imported_names = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            imports.extend(alias.name for alias in node.names)
+            imported_names.extend(alias.name for alias in node.names)
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-            imports.append(node.module)
+            imported_names.append(node.module)
+
     return [
-        name
-        for name in imports
-        if name.split(".")[0] in ADAPTER_TOP_LEVEL_NAMES
+        imported_name
+        for imported_name in imported_names
+        if imported_name.split(".")[0] in ADAPTER_TOP_LEVEL_NAMES
     ]
 
 
-def test_game_core_imports_no_adapter_module(repo_root):
-    game_core_source = repo_root / "packages" / "game-core" / "src"
-    assert game_core_source.is_dir(), "game-core module source is missing"
-    source_files = sorted(game_core_source.rglob("*.py"))
+def test_game_core_imports_no_adapter_module():
+    module_root = Path(__file__).resolve().parent.parent
+    source_root = module_root / "src"
+    assert source_root.is_dir(), "game-core module source is missing"
+
+    source_files = sorted(source_root.rglob("*.py"))
     assert source_files, "game-core module has no source files"
 
     offences = []
     for source_file in source_files:
-        for imported in _adapter_imports_in(source_file):
-            offences.append(f"{source_file.relative_to(repo_root)}: {imported}")
+        for imported_name in adapter_imports_in(source_file):
+            offences.append(
+                f"{source_file.relative_to(module_root)}: {imported_name}"
+            )
 
     assert not offences, (
-        f"game-core must not import its adapters:\n" + "\n".join(offences)
+        "game-core must not import its adapters:\n" + "\n".join(offences)
+    )
+    assert (module_root / "pyproject.toml").is_file(), (
+        "game-core must carry its own manifest"
     )
