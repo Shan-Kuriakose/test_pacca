@@ -7,8 +7,11 @@ wires an unconfigured port must fail loudly here, not silently degrade.
 Every tunable -- starting difficulty, speed, board size, obstacle count --
 is read from the injected knob store on each match start and each round,
 never from a literal. The loop keeps an explicit match lifecycle: a round
-cannot run before a match starts, a match cannot restart while it runs, and
-``end_match()`` marks the boundary the between-games tuning reads across.
+cannot run before a match starts, a paused match refuses progress until
+it is resumed, and ``end_match()`` marks the boundary the between-games
+tuning reads across. ``restart()`` turns that boundary into one atomic
+transition: the finished match ends and a fresh one begins, reading the
+knob store anew so between-games retuning lands without any limbo state.
 """
 
 from dataclasses import dataclass
@@ -19,6 +22,8 @@ from game_core.events import DomainEvent, EventPublisher
 from game_core.match_parameters import MatchKnobs
 
 MATCH_STARTED_EVENT = "match.started"
+MATCH_PAUSED_EVENT = "match.paused"
+MATCH_RESUMED_EVENT = "match.resumed"
 ROUND_STARTED_EVENT = "round.started"
 DIFFICULTY_ADJUSTED_EVENT = "difficulty.adjusted"
 
@@ -57,11 +62,17 @@ class GameLoop:
         self._knobs = knobs if knobs is not None else MatchKnobs()
         self._difficulty = self._knobs.starting_difficulty
         self._match_in_progress = False
+        self._match_paused = False
 
     @property
     def difficulty(self) -> float:
         """The difficulty in force for the next round."""
         return self._difficulty
+
+    @property
+    def paused(self) -> bool:
+        """Whether the live match is currently frozen by a pause."""
+        return self._match_paused
 
     def start_match(self) -> None:
         """Begin a match by reading every tunable from the knob store."""
@@ -70,8 +81,32 @@ class GameLoop:
                 "a match is already in progress; end it before starting another"
             )
         self._match_in_progress = True
+        self._match_paused = False
         self._difficulty = self._knobs.starting_difficulty
         self._publish(MATCH_STARTED_EVENT, self._match_parameters_reported())
+
+    def pause(self) -> None:
+        """Freeze the live match: rounds refuse to run until it resumes."""
+        self._require_a_live_unpaused_match(action="pause")
+        self._match_paused = True
+        self._publish(MATCH_PAUSED_EVENT, {})
+
+    def resume(self) -> None:
+        """Unfreeze a paused match, letting rounds run again."""
+        self._require_a_paused_match()
+        self._match_paused = False
+        self._publish(MATCH_RESUMED_EVENT, {})
+
+    def restart(self) -> None:
+        """End the running match and begin a fresh one in one transition.
+
+        The single call exists so a death needs no limbo state between the
+        two matches, and because the fresh start reads the knob store
+        anew it is the hook point where the AI retunes between games.
+        """
+        self._require_a_live_match(action="restart")
+        self.end_match()
+        self.start_match()
 
     def end_match(self) -> None:
         """Mark the match finished, freeing the loop to start a new one."""
@@ -81,6 +116,10 @@ class GameLoop:
 
     def play_round(self, player_succeeded: bool) -> RoundResult:
         """Run one round: report it, then hand the outcome to the strategy."""
+        if self._match_paused:
+            raise ValueError(
+                "the match is paused; resume it before playing a round"
+            )
         if not self._match_in_progress:
             raise ValueError(
                 "no match is running; call start_match() to begin one"
@@ -94,6 +133,28 @@ class GameLoop:
         return RoundResult(
             difficulty=self._difficulty, player_succeeded=player_succeeded
         )
+
+    def _require_a_live_unpaused_match(self, action: str) -> None:
+        """Refuse an action that needs a live, unpaused match."""
+        self._require_a_live_match(action=action)
+        if self._match_paused:
+            raise ValueError(
+                f"the match is paused; only resume() may leave the pause, "
+                f"not {action}()"
+            )
+
+    def _require_a_live_match(self, action: str) -> None:
+        """Refuse an action that cannot run without a live match."""
+        if not self._match_in_progress:
+            raise ValueError(f"no match is running to {action}")
+
+    def _require_a_paused_match(self) -> None:
+        """Refuse a resume with no paused match behind it."""
+        if not self._match_in_progress or not self._match_paused:
+            raise ValueError(
+                "no match is paused to resume;"
+                " resume() follows a pause() on a live match"
+            )
 
     def _physical_parameters_from_the_store(self) -> dict[str, Any]:
         """The three physical tunables exactly as the store holds them."""
