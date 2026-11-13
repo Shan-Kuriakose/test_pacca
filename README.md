@@ -22,10 +22,12 @@ into another project without carrying the engine along.
 
 The rule is enforced by tests, not by review:
 
-- `tests/test_module_scope.py` proves every module declares its own manifest
-  and imports with nothing but its own source on the path.
+- `tests/test_contract_pins.py` proves every module declares its own manifest,
+  imports with nothing but its own source on the path, and keeps adapter
+  contract pins byte-for-byte identical to the game-core source.
 - `packages/game-core/tests/test_architecture.py` fails if game-core source
-  ever imports an adapter module.
+  ever imports an adapter module, while the root module-scope boundary test
+  fails if an adapter imports back into the loop.
 
 ## Run the demo
 
