@@ -4,7 +4,6 @@ Each module lives in its own directory under packages/, declares its own
 manifest, and imports with nothing but its own source on the path.
 """
 
-import os
 import subprocess
 import sys
 
@@ -18,8 +17,7 @@ MODULES_TO_IMPORTS = {
 def _probe_imports_alone(repo_root, subdirectory, import_name, sibling_imports):
     """Import one module in a subprocess whose path holds only its own source."""
     source_root = repo_root / "packages" / subdirectory / "src"
-    environment = dict(os.environ)
-    environment["PYTHONPATH"] = str(source_root)
+    environment = {"PYTHONPATH": str(source_root)}
     probe = f"import sys\nimport {import_name}\n"
     probe += f"assert not any(name in sys.modules for name in {sorted(sibling_imports)!r})\n"
     completed = subprocess.run(

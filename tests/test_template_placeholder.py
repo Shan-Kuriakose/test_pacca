@@ -86,6 +86,9 @@ def test_the_copied_template_test_suite_passes_in_the_copy(repo_root, tmp_path):
     copied_template = a_clean_copy_without_checkout_state(
         repo_root, tmp_path / "template-copy"
     )
+    assert copied_template.joinpath(".git").exists() is False, (
+        "the copied template must not carry checkout state"
+    )
     completed = the_test_suite_run_in(copied_template)
 
     assert completed.returncode == 0, (
